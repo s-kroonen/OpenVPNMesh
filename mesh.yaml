@@ -1,0 +1,35 @@
+# mesh.yaml — full schema
+node:
+  name: "node-a"
+  public_ip: "127.0.0.1"
+  wg_port: 51820
+  vpn_port: 443
+  api_port: 8080
+  ui_port: 3000
+  priority: 100
+
+mesh:
+  mode: "leader"
+  join_addr: ""
+  join_token: ""
+
+network:
+  client_subnet: "10.8.0.0/24"
+  mesh_subnet: "10.99.0.0/24"
+  allowed_lan: "192.168.100.0/24"
+
+routing:
+  mode: "weighted"
+  weight: 100
+  health_interval: 3
+  failover_threshold: 3
+
+cloudflare:
+  enabled: false
+  api_token: ""
+  zone_id: ""
+  domain: "vpn.yourdomain.com"
+  ttl: 60
+
+auth:
+  admin_password: "testpassword"

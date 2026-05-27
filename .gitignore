@@ -1,0 +1,5 @@
+/dist/
+/.env
+/frontend/node_modules/
+/.idea/
+/.claude/

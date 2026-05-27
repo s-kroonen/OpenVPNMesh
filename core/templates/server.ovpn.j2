@@ -1,0 +1,19 @@
+port {{ node.vpn_port }}
+proto tcp
+dev tun
+ca /data/pki/ca.crt
+cert /data/pki/server.crt
+key /data/pki/server.key
+dh /data/pki/dh.pem
+tls-auth /data/pki/ta.key 0
+server {{ client_subnet_base }} {{ client_subnet_mask }}
+push "route {{ allowed_lan_base }} {{ allowed_lan_mask }}"
+push "route-nopull"
+keepalive 10 30
+cipher AES-256-GCM
+user nobody
+group nogroup
+persist-key
+persist-tun
+status /data/openvpn/status.log
+verb 3

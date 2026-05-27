@@ -1,0 +1,14 @@
+[Interface]
+Address = {{ node.wg_ip }}/24
+PrivateKey = {{ node.wg_privkey }}
+ListenPort = {{ node.wg_port }}
+PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+
+{% for peer in peers %}
+[Peer]
+PublicKey = {{ peer.wg_pubkey }}
+AllowedIPs = {{ peer.wg_ip }}/32
+Endpoint = {{ peer.public_ip }}:{{ peer.wg_port }}
+PersistentKeepalive = 5
+{% endfor %}

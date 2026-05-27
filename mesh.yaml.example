@@ -1,0 +1,35 @@
+# mesh.yaml — full schema
+node:
+  name: "node-a"
+  public_ip: "1.2.3.4"          # or hostname
+  wg_port: 51820
+  vpn_port: 443
+  api_port: 8080
+  ui_port: 3000
+  priority: 100                  # higher = preferred leader
+
+mesh:
+  mode: "leader"                 # "leader" or "join"
+  join_addr: ""                  # "1.2.3.4:8080" for join mode
+  join_token: ""                 # from leader UI
+
+network:
+  client_subnet: "10.8.0.0/24"
+  mesh_subnet: "10.99.0.0/24"
+  allowed_lan: "192.168.100.0/24"
+
+routing:
+  mode: "weighted"               # weighted | random | fastest | failover
+  weight: 100
+  health_interval: 3
+  failover_threshold: 3
+
+cloudflare:
+  enabled: true
+  api_token: ""                  # or set CF_API_TOKEN env var
+  zone_id: ""
+  domain: "vpn.yourdomain.com"
+  ttl: 60
+
+auth:
+  admin_password: ""             # or set ADMIN_PASSWORD env var — bcrypt on startup

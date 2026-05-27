@@ -1,0 +1,68 @@
+services:
+  core:
+    build: ./core
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/data
+      - ./mesh.yaml:/etc/meshvpn/mesh.yaml
+    environment:
+      - CF_API_TOKEN=${CF_API_TOKEN}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+    networks:
+      - meshvpn
+
+  wg-manager:
+    build: ./wg-manager
+    network_mode: "host"
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    volumes:
+      - ./data:/data
+
+  router:
+    build: ./router
+    network_mode: "host"
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./data:/data
+
+  openvpn:
+    image: kylemanna/openvpn:latest
+    network_mode: "host"
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./data:/etc/openvpn
+
+  haproxy:
+    build: ./haproxy
+    ports:
+      - "443:443"
+    volumes:
+      - ./data:/data/haproxy
+    networks:
+      - meshvpn
+
+  cloudflare:
+    build: ./cloudflare
+    volumes:
+      - ./data:/data
+    networks:
+      - meshvpn
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    networks:
+      - meshvpn
+
+volumes:
+  meshvpn-data:
+
+networks:
+  meshvpn:
+    driver: bridge
