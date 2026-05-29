@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import datetime
 from contextlib import contextmanager
 
 # Database file path
@@ -95,3 +96,24 @@ def get_db():
         yield conn
     finally:
         conn.close()
+
+def get_node_by_name(name):
+    """Get a node by name from the database."""
+    with get_db() as conn:
+        cursor = conn.execute("SELECT * FROM nodes WHERE name = ?", (name,))
+        return cursor.fetchone()
+
+def get_join_token():
+    """Get the current join token from mesh_config."""
+    with get_db() as conn:
+        cursor = conn.execute("SELECT value FROM mesh_config WHERE key = 'join_token'")
+        result = cursor.fetchone()
+        return result['value'] if result else None
+
+def set_join_token(token):
+    """Set the join token in mesh_config."""
+    with get_db() as conn:
+        conn.execute("""
+            INSERT OR REPLACE INTO mesh_config (key, value, updated_at)
+            VALUES ('join_token', ?, ?)
+        """, (token, int(datetime.datetime.utcnow().timestamp())))
