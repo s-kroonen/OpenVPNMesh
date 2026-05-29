@@ -1,12 +1,17 @@
-FROM node:20-alpine
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-COPY package.json .
+COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm install
 
-COPY . .
-
+COPY frontend/ .
 RUN npm run build
 
-CMD ["npm", "run", "serve"]
+FROM nginx:alpine
+
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY frontend/nginx.conf /etc/nginx/nginx.conf
+
+EXPOSE 3000
+CMD ["nginx", "-g", "daemon off;"]

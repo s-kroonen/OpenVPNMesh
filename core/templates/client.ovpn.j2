@@ -1,10 +1,9 @@
 client
 dev tun
 proto tcp
-# All known nodes listed — client tries in order, falls back automatically
-remote {{ nodes[0].public_ip }} 443
-remote {{ nodes[1].public_ip }} 443
-remote {{ nodes[2].public_ip }} 443
+{% for node in nodes %}
+remote {{ node.public_ip }} 443
+{% endfor %}
 remote-random
 resolv-retry infinite
 nobind
@@ -12,8 +11,16 @@ persist-key
 persist-tun
 cipher AES-256-GCM
 verb 3
-<ca>{{ ca_cert }}</ca>
-<cert>{{ client_cert }}</cert>
-<key>{{ client_key }}</key>
-<tls-auth>{{ ta_key }}</tls-auth>
+<ca>
+{{ ca_cert }}
+</ca>
+<cert>
+{{ client_cert }}
+</cert>
+<key>
+{{ client_key }}
+</key>
+<tls-auth>
+{{ ta_key }}
+</tls-auth>
 key-direction 1

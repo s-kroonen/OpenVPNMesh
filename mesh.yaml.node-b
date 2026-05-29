@@ -1,0 +1,37 @@
+# mesh.yaml for Node B (follower / join mode)
+# Copy this to mesh.yaml on the Node B machine, then fill in the blanks.
+
+node:
+  name: "node-b"             # must be unique across the mesh
+  public_ip: "NODE_B_IP"    # this machine's public IP (or LAN IP for testing)
+  wg_port: 51820
+  vpn_port: 443
+  api_port: 8080
+  ui_port: 3000
+  priority: 50              # lower than node-a (100) so node-a stays leader
+
+mesh:
+  mode: "join"
+  join_addr: "NODE_A_IP:8080"   # Node A's IP and API port
+  join_token: "PASTE_TOKEN_HERE" # from Node A → Servers page → "Add server"
+
+network:
+  client_subnet: "10.8.0.0/24"   # must match node-a exactly
+  mesh_subnet: "10.99.0.0/24"    # must match node-a exactly
+  allowed_lan: "192.168.100.0/24"
+
+routing:
+  mode: "weighted"
+  weight: 100
+  health_interval: 3
+  failover_threshold: 3
+
+cloudflare:
+  enabled: false
+  api_token: ""
+  zone_id: ""
+  domain: "vpn.yourdomain.com"
+  ttl: 60
+
+auth:
+  admin_password: "testpassword"  # each node has its own admin password

@@ -4,3 +4,6 @@
 /.idea/
 /.claude/
 /core/__pycache__/
+/data/
+**/__pycache__/
+**/*.pyc
