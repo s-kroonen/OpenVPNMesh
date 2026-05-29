@@ -147,6 +147,18 @@ async def _leader_startup():
     logger.info("Leader startup complete.")
 
 
+def _join_base_url(join_addr: str) -> str:
+    """Return a base URL for the leader API.
+
+    join_addr can be:
+      - a full URL:    https://vpn.example.com   →  used as-is
+      - host only:     192.168.1.10:8080          →  http:// prepended
+    """
+    if join_addr.startswith(("http://", "https://")):
+        return join_addr.rstrip("/")
+    return f"http://{join_addr}"
+
+
 async def _join_startup():
     join_addr = settings.mesh.join_addr
     join_token = settings.mesh.join_token
@@ -154,7 +166,8 @@ async def _join_startup():
         logger.error("join mode requires mesh.join_addr and mesh.join_token in mesh.yaml")
         raise SystemExit(1)
 
-    logger.info(f"Starting in FOLLOWER mode, joining {join_addr}…")
+    base_url = _join_base_url(join_addr)
+    logger.info(f"Starting in FOLLOWER mode, joining {base_url}…")
     set_state(NodeState.FOLLOWER)
 
     _privkey, pubkey = _setup_wg_keypair()
@@ -169,10 +182,12 @@ async def _join_startup():
         "priority": settings.node.priority,
     }
 
-    join_url = f"http://{join_addr}/api/nodes/join"
+    join_url = f"{base_url}/api/nodes/join"
     response_data = None
 
-    async with httpx.AsyncClient(timeout=10) as client:
+    # Allow opting out of SSL verification for self-signed certs (not recommended).
+    ssl_verify = os.environ.get("MESH_JOIN_SSL_VERIFY", "true").lower() != "false"
+    async with httpx.AsyncClient(timeout=10, verify=ssl_verify) as client:
         while True:
             try:
                 resp = await client.post(
@@ -185,7 +200,7 @@ async def _join_startup():
                     break
                 logger.warning(f"Join rejected ({resp.status_code}): {resp.text} — retrying in 10s")
             except Exception as e:
-                logger.warning(f"Cannot reach leader at {join_addr}: {e} — retrying in 10s")
+                logger.warning(f"Cannot reach leader at {base_url}: {e} — retrying in 10s")
             await asyncio.sleep(10)
 
     logger.info("Join accepted. Storing received configuration…")

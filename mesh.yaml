@@ -1,7 +1,7 @@
 # mesh.yaml — full schema
 node:
-  name: "node-a"
-  public_ip: "127.0.0.1"
+  name: "node-b"
+  public_ip: "192.168.178.82"
   wg_port: 51820
   vpn_port: 443
   api_port: 8080
@@ -9,10 +9,9 @@ node:
   priority: 100
 
 mesh:
-  mode: "leader"
-  join_addr: ""
-  join_token: ""
-
+  mode: "join"
+  join_addr: "https://vpn.kroon-en.nl"
+  join_token: "1371fd59df5d6918872d310bc88383b4e39f65d2a30de4bcc82ec6b7716c8da3"
 network:
   client_subnet: "10.8.0.0/24"
   mesh_subnet: "10.99.0.0/24"
@@ -20,7 +19,7 @@ network:
 
 routing:
   mode: "weighted"
-  weight: 100
+  weight: 50
   health_interval: 3
   failover_threshold: 3
 

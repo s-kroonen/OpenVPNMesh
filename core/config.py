@@ -13,11 +13,18 @@ FILE mode (local dev):
 import os
 import sys
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class NodeConfig(BaseModel):
     name: str
+
+    @field_validator("name")
+    @classmethod
+    def name_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("MESH_NODE_NAME must not be empty")
+        return v
     public_ip: str
     wg_port: int = Field(default=51820, ge=1, le=65535)
     vpn_port: int = Field(default=443, ge=1, le=65535)
@@ -123,8 +130,10 @@ def _from_yaml(path: str) -> dict:
 YAML_PATH = os.environ.get("MESH_CONFIG", "/etc/meshvpn/mesh.yaml")
 
 try:
-    # Env-var mode: both required keys present → no file needed
-    if "MESH_NODE_NAME" in os.environ and "MESH_PUBLIC_IP" in os.environ:
+    # Env-var mode: both required keys present AND non-empty → no file needed.
+    # Empty string (docker-compose default) falls through to YAML so the
+    # mounted mesh.yaml is used for local dev.
+    if os.environ.get("MESH_NODE_NAME") and os.environ.get("MESH_PUBLIC_IP"):
         _raw = _from_env()
         print("[config] Using environment-variable configuration.")
     else:

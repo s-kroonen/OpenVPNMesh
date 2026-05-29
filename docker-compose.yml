@@ -59,8 +59,8 @@ services:
       - "${MESH_API_PORT:-8080}:8080"
     volumes:
       - meshvpn-data:/data
-      # Option B — uncomment for YAML-file config (local dev without env vars):
-      # - ./mesh.yaml:/etc/meshvpn/mesh.yaml:ro
+      # Option B — YAML-file config (used when MESH_NODE_NAME is not set):
+      - ./mesh.yaml:/etc/meshvpn/mesh.yaml:ro
     environment:
       <<: *core-env
     networks:

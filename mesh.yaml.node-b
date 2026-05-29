@@ -12,7 +12,11 @@ node:
 
 mesh:
   mode: "join"
-  join_addr: "NODE_A_IP:8080"   # Node A's IP and API port
+  # Plain IP (local / no reverse proxy):
+  #   join_addr: "192.168.1.10:8080"
+  # Domain behind a reverse proxy with HTTPS (e.g. NPM / Caddy):
+  #   join_addr: "https://vpn.example.com"
+  join_addr: "NODE_A_IP:8080"   # Node A's IP:port, or full https:// URL
   join_token: "PASTE_TOKEN_HERE" # from Node A → Servers page → "Add server"
 
 network:
