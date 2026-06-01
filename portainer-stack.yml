@@ -5,7 +5,7 @@
 #  HOW TO DEPLOY:
 #  1. In Portainer → Stacks → Add stack
 #  2. Paste this file (or point at the git repo)
-#  3. Scroll down to "Environment variables" and add the vars listed below
+#  3. Set environment variables listed below
 #  4. Click "Deploy the stack"
 #
 #  REQUIRED ENVIRONMENT VARIABLES (set in Portainer UI):
@@ -14,6 +14,7 @@
 #    ADMIN_PASSWORD     e.g.  changeme
 #
 #  OPTIONAL:
+#    IMAGE_TAG          Image tag to deploy  (default: latest)
 #    MESH_MODE          leader (default) or join
 #    MESH_JOIN_ADDR     LEADER_IP:8080   (join mode only)
 #    MESH_JOIN_TOKEN    token from leader UI   (join mode only)
@@ -24,44 +25,47 @@
 #    MESH_SUBNET        10.99.0.0/24
 #    COMPOSE_PROFILES   wg,openvpn,haproxy,cloudflare,router
 #
+#  Images are published to ghcr.io/s-kroonen/meshvpn-<service>
+#  via GitHub Actions on every push to main.
+#
 # =============================================================================
+
+x-core-env: &core-env
+  MESH_NODE_NAME:          ${MESH_NODE_NAME}
+  MESH_PUBLIC_IP:          ${MESH_PUBLIC_IP}
+  MESH_WG_PORT:            ${MESH_WG_PORT:-51820}
+  MESH_VPN_PORT:           ${MESH_VPN_PORT:-443}
+  MESH_API_PORT:           ${MESH_API_PORT:-8080}
+  MESH_UI_PORT:            ${MESH_UI_PORT:-3000}
+  MESH_PRIORITY:           ${MESH_PRIORITY:-100}
+  MESH_MODE:               ${MESH_MODE:-leader}
+  MESH_JOIN_ADDR:          ${MESH_JOIN_ADDR:-}
+  MESH_JOIN_TOKEN:         ${MESH_JOIN_TOKEN:-}
+  MESH_CLIENT_SUBNET:      ${MESH_CLIENT_SUBNET:-10.8.0.0/24}
+  MESH_SUBNET:             ${MESH_SUBNET:-10.99.0.0/24}
+  MESH_ALLOWED_LAN:        ${MESH_ALLOWED_LAN:-192.168.100.0/24}
+  MESH_ROUTING_MODE:       ${MESH_ROUTING_MODE:-weighted}
+  MESH_ROUTING_WEIGHT:     ${MESH_ROUTING_WEIGHT:-100}
+  MESH_HEALTH_INTERVAL:    ${MESH_HEALTH_INTERVAL:-3}
+  MESH_FAILOVER_THRESHOLD: ${MESH_FAILOVER_THRESHOLD:-3}
+  ADMIN_PASSWORD:          ${ADMIN_PASSWORD:-admin}
+  CF_ENABLED:              ${CF_ENABLED:-false}
+  CF_API_TOKEN:            ${CF_API_TOKEN:-}
+  CF_ZONE_ID:              ${CF_ZONE_ID:-}
+  CF_DOMAIN:               ${CF_DOMAIN:-vpn.yourdomain.com}
+  CF_TTL:                  ${CF_TTL:-60}
 
 services:
 
+  # ── Core mesh daemon ─────────────────────────────────────────────────────────
   core:
-    image: ghcr.io/your-org/meshvpn-core:latest
-    # If not using a pre-built image, use build context instead:
-    build:
-      context: .
-      dockerfile: core/Dockerfile
+    image: ghcr.io/s-kroonen/meshvpn-core:${IMAGE_TAG:-latest}
     ports:
       - "${MESH_API_PORT:-8080}:8080"
     volumes:
       - meshvpn-data:/data
     environment:
-      MESH_NODE_NAME:          ${MESH_NODE_NAME}
-      MESH_PUBLIC_IP:          ${MESH_PUBLIC_IP}
-      MESH_WG_PORT:            ${MESH_WG_PORT:-51820}
-      MESH_VPN_PORT:           ${MESH_VPN_PORT:-443}
-      MESH_API_PORT:           ${MESH_API_PORT:-8080}
-      MESH_UI_PORT:            ${MESH_UI_PORT:-3000}
-      MESH_PRIORITY:           ${MESH_PRIORITY:-100}
-      MESH_MODE:               ${MESH_MODE:-leader}
-      MESH_JOIN_ADDR:          ${MESH_JOIN_ADDR:-}
-      MESH_JOIN_TOKEN:         ${MESH_JOIN_TOKEN:-}
-      MESH_CLIENT_SUBNET:      ${MESH_CLIENT_SUBNET:-10.8.0.0/24}
-      MESH_SUBNET:             ${MESH_SUBNET:-10.99.0.0/24}
-      MESH_ALLOWED_LAN:        ${MESH_ALLOWED_LAN:-192.168.100.0/24}
-      MESH_ROUTING_MODE:       ${MESH_ROUTING_MODE:-weighted}
-      MESH_ROUTING_WEIGHT:     ${MESH_ROUTING_WEIGHT:-100}
-      MESH_HEALTH_INTERVAL:    ${MESH_HEALTH_INTERVAL:-3}
-      MESH_FAILOVER_THRESHOLD: ${MESH_FAILOVER_THRESHOLD:-3}
-      ADMIN_PASSWORD:          ${ADMIN_PASSWORD:-admin}
-      CF_ENABLED:              ${CF_ENABLED:-false}
-      CF_API_TOKEN:            ${CF_API_TOKEN:-}
-      CF_ZONE_ID:              ${CF_ZONE_ID:-}
-      CF_DOMAIN:               ${CF_DOMAIN:-vpn.yourdomain.com}
-      CF_TTL:                  ${CF_TTL:-60}
+      <<: *core-env
     networks:
       - meshvpn
     restart: unless-stopped
@@ -72,10 +76,9 @@ services:
       retries: 5
       start_period: 90s
 
+  # ── Web UI ───────────────────────────────────────────────────────────────────
   frontend:
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
+    image: ghcr.io/s-kroonen/meshvpn-frontend:${IMAGE_TAG:-latest}
     ports:
       - "${MESH_UI_PORT:-3000}:3000"
     networks:
@@ -84,13 +87,10 @@ services:
     depends_on:
       - core
 
-  # ── Optional: WireGuard manager ───────────────────────────────────────────
-  # Add  COMPOSE_PROFILES=wg  (or include wg) to enable.
+  # ── WireGuard manager (profile: wg) ─────────────────────────────────────────
   wg-manager:
     profiles: [wg]
-    build:
-      context: .
-      dockerfile: wg-manager/Dockerfile
+    image: ghcr.io/s-kroonen/meshvpn-wg-manager:${IMAGE_TAG:-latest}
     network_mode: "host"
     cap_add:
       - NET_ADMIN
@@ -101,12 +101,10 @@ services:
       CORE_API: "http://127.0.0.1:${MESH_API_PORT:-8080}"
     restart: unless-stopped
 
-  # ── Optional: ip route manager ────────────────────────────────────────────
+  # ── ip route manager (profile: router) ──────────────────────────────────────
   router:
     profiles: [router]
-    build:
-      context: .
-      dockerfile: router/Dockerfile
+    image: ghcr.io/s-kroonen/meshvpn-router:${IMAGE_TAG:-latest}
     network_mode: "host"
     cap_add:
       - NET_ADMIN
@@ -116,12 +114,10 @@ services:
       CORE_API: "http://127.0.0.1:${MESH_API_PORT:-8080}"
     restart: unless-stopped
 
-  # ── Optional: OpenVPN server ──────────────────────────────────────────────
+  # ── OpenVPN server (profile: openvpn) ───────────────────────────────────────
   openvpn:
     profiles: [openvpn]
-    build:
-      context: .
-      dockerfile: openvpn/Dockerfile
+    image: ghcr.io/s-kroonen/meshvpn-openvpn:${IMAGE_TAG:-latest}
     network_mode: "host"
     cap_add:
       - NET_ADMIN
@@ -131,24 +127,20 @@ services:
       - meshvpn-data:/data
     restart: unless-stopped
 
-  # ── Optional: HAProxy TCP frontend (port 443 → OpenVPN) ──────────────────
+  # ── HAProxy TCP frontend (profile: haproxy) ──────────────────────────────────
   haproxy:
     profiles: [haproxy]
-    build:
-      context: .
-      dockerfile: haproxy/Dockerfile
+    image: ghcr.io/s-kroonen/meshvpn-haproxy:${IMAGE_TAG:-latest}
     ports:
-      - "443:443"
+      - "${MESH_VPN_PORT:-443}:443"
     networks:
       - meshvpn
     restart: unless-stopped
 
-  # ── Optional: Cloudflare DNS updater ─────────────────────────────────────
+  # ── Cloudflare DNS updater (profile: cloudflare) ─────────────────────────────
   cloudflare:
     profiles: [cloudflare]
-    build:
-      context: .
-      dockerfile: cloudflare/Dockerfile
+    image: ghcr.io/s-kroonen/meshvpn-cloudflare:${IMAGE_TAG:-latest}
     volumes:
       - meshvpn-data:/data
     environment:
