@@ -139,7 +139,7 @@ services:
       context: .
       dockerfile: haproxy/Dockerfile
     ports:
-      - "443:443"
+      - "${MESH_VPN_PORT:-443}:443"
     networks:
       - meshvpn
     restart: unless-stopped

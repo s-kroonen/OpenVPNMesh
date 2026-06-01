@@ -7,8 +7,9 @@ key /data/pki/server.key
 dh /data/pki/dh.pem
 tls-auth /data/pki/ta.key 0
 server {{ client_subnet_base }} {{ client_subnet_mask }}
+push "redirect-gateway def1 bypass-dhcp"
+push "dhcp-option DNS 8.8.8.8"
 push "route {{ allowed_lan_base }} {{ allowed_lan_mask }}"
-push "route-nopull"
 keepalive 10 30
 cipher AES-256-GCM
 user nobody
