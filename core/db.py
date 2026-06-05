@@ -13,6 +13,7 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT UNIQUE NOT NULL,
                 public_ip TEXT NOT NULL,
+                api_url TEXT,
                 wg_pubkey TEXT,
                 wg_ip TEXT,
                 api_port INTEGER,
@@ -61,6 +62,10 @@ def init_db():
         conn.execute(
             "INSERT OR IGNORE INTO routing_rules (mode, weights_json, updated_at) VALUES ('weighted', '{}', 0)"
         )
+        # Migration: add api_url column if upgrading from an older schema
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(nodes)").fetchall()}
+        if "api_url" not in cols:
+            conn.execute("ALTER TABLE nodes ADD COLUMN api_url TEXT")
 
 
 @contextmanager
@@ -107,14 +112,14 @@ def get_node_by_id(node_id: int):
         return conn.execute("SELECT * FROM nodes WHERE id = ?", (node_id,)).fetchone()
 
 
-def insert_node(name, public_ip, wg_pubkey, wg_ip, api_port, wg_port, vpn_port, priority, status):
+def insert_node(name, public_ip, wg_pubkey, wg_ip, api_port, wg_port, vpn_port, priority, status, api_url=None):
     now = int(datetime.datetime.utcnow().timestamp())
     with get_db() as conn:
         conn.execute(
             """INSERT INTO nodes
-               (name, public_ip, wg_pubkey, wg_ip, api_port, wg_port, vpn_port, priority, status, joined_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (name, public_ip, wg_pubkey, wg_ip, api_port, wg_port, vpn_port, priority, status, now),
+               (name, public_ip, api_url, wg_pubkey, wg_ip, api_port, wg_port, vpn_port, priority, status, joined_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (name, public_ip, api_url, wg_pubkey, wg_ip, api_port, wg_port, vpn_port, priority, status, now),
         )
 
 

@@ -27,6 +27,7 @@ class NodeOut(BaseModel):
     id: int
     name: str
     public_ip: str
+    api_url: Optional[str] = None
     wg_pubkey: Optional[str] = None
     wg_ip: Optional[str] = None
     api_port: int
@@ -41,6 +42,7 @@ class NodeOut(BaseModel):
 class JoinRequest(BaseModel):
     name: str
     public_ip: str
+    api_url: Optional[str] = None   # full public URL if behind a reverse proxy
     wg_pubkey: str
     wg_port: int
     vpn_port: int
@@ -82,7 +84,7 @@ async def get_join_token(_user: str = Depends(require_auth)):
     token = get_config("join_token")
     if not token:
         raise HTTPException(status_code=404, detail="No join token — is this node the leader?")
-    return {"join_token": token, "join_addr": f"{settings.node.public_ip}:{settings.node.api_port}"}
+    return {"join_token": token, "join_addr": settings.node.effective_api_url}
 
 
 @router.post("/join", response_model=JoinResponse)
@@ -106,6 +108,7 @@ async def join_node(
         insert_node(
             name=req.name,
             public_ip=req.public_ip,
+            api_url=req.api_url,
             wg_pubkey=req.wg_pubkey,
             wg_ip=wg_ip,
             api_port=req.api_port,
@@ -156,7 +159,7 @@ async def rotate_join_token(_user: str = Depends(require_auth)):
     set_config("join_token", new_token)
     return {
         "join_token": new_token,
-        "join_addr": f"{settings.node.public_ip}:{settings.node.api_port}",
+        "join_addr": settings.node.effective_api_url,
     }
 
 

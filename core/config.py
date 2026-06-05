@@ -26,11 +26,19 @@ class NodeConfig(BaseModel):
             raise ValueError("MESH_NODE_NAME must not be empty")
         return v
     public_ip: str
+    api_url: Optional[str] = None   # full public URL, e.g. https://vpn.example.com
     wg_port: int = Field(default=51820, ge=1, le=65535)
     vpn_port: int = Field(default=443, ge=1, le=65535)
     api_port: int = Field(default=8080, ge=1, le=65535)
     ui_port: int = Field(default=3000, ge=1, le=65535)
     priority: int = 100
+
+    @property
+    def effective_api_url(self) -> str:
+        """Base URL peers use to reach this node's API (no trailing slash)."""
+        if self.api_url:
+            return self.api_url.rstrip("/")
+        return f"http://{self.public_ip}:{self.api_port}"
 
 
 class MeshConfig(BaseModel):
@@ -80,6 +88,7 @@ def _from_env() -> dict:
         "node": {
             "name":       os.environ["MESH_NODE_NAME"],
             "public_ip":  os.environ["MESH_PUBLIC_IP"],
+            "api_url":    e("MESH_API_URL",  None),
             "wg_port":    int(e("MESH_WG_PORT",  "51820")),
             "vpn_port":   int(e("MESH_VPN_PORT", "443")),
             "api_port":   int(e("MESH_API_PORT", "8080")),

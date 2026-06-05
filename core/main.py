@@ -112,6 +112,7 @@ async def _leader_startup():
         insert_node(
             name=settings.node.name,
             public_ip=settings.node.public_ip,
+            api_url=settings.node.api_url,
             wg_pubkey=pubkey,
             wg_ip=wg_ip,
             api_port=settings.node.api_port,
@@ -175,6 +176,7 @@ async def _join_startup():
     body = {
         "name": settings.node.name,
         "public_ip": settings.node.public_ip,
+        "api_url": settings.node.api_url,
         "wg_pubkey": pubkey,
         "wg_port": settings.node.wg_port,
         "vpn_port": settings.node.vpn_port,
@@ -221,6 +223,7 @@ async def _join_startup():
         insert_node(
             name=settings.node.name,
             public_ip=settings.node.public_ip,
+            api_url=settings.node.api_url,
             wg_pubkey=pubkey,
             wg_ip=wg_ip,
             api_port=settings.node.api_port,
