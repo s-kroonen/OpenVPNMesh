@@ -102,7 +102,7 @@ services:
       - core
 
   # ── WireGuard manager ────────────────────────────────────────────────────────
-  # ENABLE_WG=true to activate, false (default) = container exits immediately.
+  # ENABLE_WG=true to activate, false (default) = container exits 0 and stays stopped.
   wg-manager:
     image: ghcr.io/s-kroonen/meshvpn-wg-manager:${IMAGE_TAG:-latest}
     network_mode: "host"
@@ -114,7 +114,7 @@ services:
     environment:
       ENABLE_WG: "${ENABLE_WG:-false}"
       CORE_API: "http://127.0.0.1:${MESH_API_PORT:-8080}"
-    restart: unless-stopped
+    restart: on-failure
 
   # ── ip route manager ─────────────────────────────────────────────────────────
   # ENABLE_ROUTER=true to activate.
@@ -128,7 +128,7 @@ services:
     environment:
       ENABLE_ROUTER: "${ENABLE_ROUTER:-false}"
       CORE_API: "http://127.0.0.1:${MESH_API_PORT:-8080}"
-    restart: unless-stopped
+    restart: on-failure
 
   # ── OpenVPN server ───────────────────────────────────────────────────────────
   # ENABLE_OPENVPN=true to activate.
@@ -143,7 +143,7 @@ services:
       - meshvpn-data:/data
     environment:
       ENABLE_OPENVPN: "${ENABLE_OPENVPN:-false}"
-    restart: unless-stopped
+    restart: on-failure
 
   # ── HAProxy TCP frontend ──────────────────────────────────────────────────────
   # ENABLE_HAPROXY=true to activate. Required to expose port 443 to VPN clients.
@@ -155,7 +155,7 @@ services:
       - meshvpn
     environment:
       ENABLE_HAPROXY: "${ENABLE_HAPROXY:-false}"
-    restart: unless-stopped
+    restart: on-failure
 
   # ── Cloudflare DNS updater ────────────────────────────────────────────────────
   # ENABLE_CLOUDFLARE=true to activate. Also set CF_API_TOKEN, CF_ZONE_ID, CF_DOMAIN.
@@ -173,7 +173,7 @@ services:
       CF_TTL:       ${CF_TTL:-60}
     networks:
       - meshvpn
-    restart: unless-stopped
+    restart: on-failure
     depends_on:
       - core
 
