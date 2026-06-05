@@ -141,7 +141,7 @@ async def _leader_startup():
         "defaults\n    mode tcp\n    timeout connect 5s\n"
         "    timeout client 60s\n    timeout server 60s\n    log global\n\n"
         "frontend vpn_in\n    bind *:443\n    default_backend openvpn_local\n\n"
-        "backend openvpn_local\n    server ovpn 127.0.0.1:1194 check\n"
+        "backend openvpn_local\n    server ovpn host-gateway:1194 check\n"
     )
     _write_file(os.path.join(HAPROXY_DIR, "haproxy.cfg"), haproxy_cfg)
 

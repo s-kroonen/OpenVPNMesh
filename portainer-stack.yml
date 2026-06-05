@@ -153,6 +153,8 @@ services:
       - "${MESH_VPN_PORT:-443}:443"
     networks:
       - meshvpn
+    extra_hosts:
+      - "host-gateway:host-gateway"
     environment:
       ENABLE_HAPROXY: "${ENABLE_HAPROXY:-false}"
     restart: on-failure

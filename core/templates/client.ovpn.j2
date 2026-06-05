@@ -2,7 +2,7 @@ client
 dev tun
 proto tcp
 {% for node in nodes %}
-remote {{ node.public_ip }} 443
+remote {{ node.public_ip }} {{ node.vpn_port }}
 {% endfor %}
 remote-random
 resolv-retry infinite
