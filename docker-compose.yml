@@ -13,16 +13,26 @@
 #
 # =============================================================================
 #
-#  OPTIONAL SERVICES — activate via COMPOSE_PROFILES env var:
+#  OPTIONAL SERVICES — set individual ENABLE_* flags to "true" to activate:
 #
-#    COMPOSE_PROFILES=wg                WireGuard manager
-#    COMPOSE_PROFILES=wg,openvpn,haproxy,cloudflare,router   full stack
+#    ENABLE_WG=true          WireGuard manager
+#    ENABLE_OPENVPN=true     OpenVPN server
+#    ENABLE_HAPROXY=true     HAProxy TCP frontend (required for port 443)
+#    ENABLE_CLOUDFLARE=true  Cloudflare DNS updater
+#    ENABLE_ROUTER=true      ip route manager
 #
-#  In Portainer: add COMPOSE_PROFILES as an environment variable.
+#  All services are always present in the stack. When ENABLE_*=false (default)
+#  the container starts and immediately exits — it uses no resources.
+#  This approach works in Portainer, Swarm, and local docker compose.
 #
 # =============================================================================
 
 x-core-env: &core-env
+  ENABLE_WG:               ${ENABLE_WG:-false}
+  ENABLE_OPENVPN:          ${ENABLE_OPENVPN:-false}
+  ENABLE_HAPROXY:          ${ENABLE_HAPROXY:-false}
+  ENABLE_CLOUDFLARE:       ${ENABLE_CLOUDFLARE:-false}
+  ENABLE_ROUTER:           ${ENABLE_ROUTER:-false}
   MESH_NODE_NAME:          ${MESH_NODE_NAME:-}
   MESH_PUBLIC_IP:          ${MESH_PUBLIC_IP:-}
   MESH_WG_PORT:            ${MESH_WG_PORT:-51820}
@@ -86,9 +96,9 @@ services:
     depends_on:
       - core
 
-  # ── WireGuard manager (profile: wg) ─────────────────────────────────────────
+  # ── WireGuard manager ────────────────────────────────────────────────────────
+  # Set ENABLE_WG=true to activate. When false the container exits immediately.
   wg-manager:
-    profiles: [wg]
     build:
       context: .
       dockerfile: wg-manager/Dockerfile
@@ -99,12 +109,13 @@ services:
     volumes:
       - meshvpn-data:/data
     environment:
+      ENABLE_WG: "${ENABLE_WG:-false}"
       CORE_API: "http://127.0.0.1:${MESH_API_PORT:-8080}"
     restart: unless-stopped
 
-  # ── ip route manager (profile: router) ──────────────────────────────────────
+  # ── ip route manager ─────────────────────────────────────────────────────────
+  # Set ENABLE_ROUTER=true to activate.
   router:
-    profiles: [router]
     build:
       context: .
       dockerfile: router/Dockerfile
@@ -114,12 +125,13 @@ services:
     volumes:
       - meshvpn-data:/data
     environment:
+      ENABLE_ROUTER: "${ENABLE_ROUTER:-false}"
       CORE_API: "http://127.0.0.1:${MESH_API_PORT:-8080}"
     restart: unless-stopped
 
-  # ── OpenVPN server (profile: openvpn) ───────────────────────────────────────
+  # ── OpenVPN server ───────────────────────────────────────────────────────────
+  # Set ENABLE_OPENVPN=true to activate.
   openvpn:
-    profiles: [openvpn]
     build:
       context: .
       dockerfile: openvpn/Dockerfile
@@ -130,11 +142,13 @@ services:
       - /dev/net/tun
     volumes:
       - meshvpn-data:/data
+    environment:
+      ENABLE_OPENVPN: "${ENABLE_OPENVPN:-false}"
     restart: unless-stopped
 
-  # ── HAProxy TCP frontend (profile: haproxy) ──────────────────────────────────
+  # ── HAProxy TCP frontend ──────────────────────────────────────────────────────
+  # Set ENABLE_HAPROXY=true to activate. Required to expose port 443 for VPN clients.
   haproxy:
-    profiles: [haproxy]
     build:
       context: .
       dockerfile: haproxy/Dockerfile
@@ -142,17 +156,20 @@ services:
       - "${MESH_VPN_PORT:-443}:443"
     networks:
       - meshvpn
+    environment:
+      ENABLE_HAPROXY: "${ENABLE_HAPROXY:-false}"
     restart: unless-stopped
 
-  # ── Cloudflare DNS updater (profile: cloudflare) ─────────────────────────────
+  # ── Cloudflare DNS updater ────────────────────────────────────────────────────
+  # Set ENABLE_CLOUDFLARE=true to activate.
   cloudflare:
-    profiles: [cloudflare]
     build:
       context: .
       dockerfile: cloudflare/Dockerfile
     volumes:
       - meshvpn-data:/data
     environment:
+      ENABLE_CLOUDFLARE: "${ENABLE_CLOUDFLARE:-false}"
       CORE_API:     "http://core:${MESH_API_PORT:-8080}"
       CF_ENABLED:   ${CF_ENABLED:-false}
       CF_API_TOKEN: ${CF_API_TOKEN:-}

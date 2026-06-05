@@ -15,15 +15,22 @@
 #
 #  OPTIONAL:
 #    IMAGE_TAG          Image tag to deploy  (default: latest)
+#    MESH_API_URL       Full public URL if behind NPM/proxy  e.g. https://vpn.example.com
 #    MESH_MODE          leader (default) or join
-#    MESH_JOIN_ADDR     LEADER_IP:8080   (join mode only)
+#    MESH_JOIN_ADDR     https://vpn.leader.com or LEADER_IP:8080  (join mode only)
 #    MESH_JOIN_TOKEN    token from leader UI   (join mode only)
 #    MESH_PRIORITY      100 for leader, 50 for followers
 #    MESH_API_PORT      8080
 #    MESH_UI_PORT       3000
 #    MESH_CLIENT_SUBNET 10.8.0.0/24
 #    MESH_SUBNET        10.99.0.0/24
-#    COMPOSE_PROFILES   wg,openvpn,haproxy,cloudflare,router
+#
+#  OPTIONAL SERVICES — set to "true" to enable (default: false = container exits cleanly):
+#    ENABLE_WG          WireGuard manager
+#    ENABLE_OPENVPN     OpenVPN server
+#    ENABLE_HAPROXY     HAProxy TCP frontend (exposes port 443 to VPN clients)
+#    ENABLE_ROUTER      ip route manager
+#    ENABLE_CLOUDFLARE  Cloudflare DNS updater (also set CF_* vars below)
 #
 #  Images are published to ghcr.io/s-kroonen/meshvpn-<service>
 #  via GitHub Actions on every push to main.
@@ -31,8 +38,14 @@
 # =============================================================================
 
 x-core-env: &core-env
+  ENABLE_WG:               ${ENABLE_WG:-false}
+  ENABLE_OPENVPN:          ${ENABLE_OPENVPN:-false}
+  ENABLE_HAPROXY:          ${ENABLE_HAPROXY:-false}
+  ENABLE_CLOUDFLARE:       ${ENABLE_CLOUDFLARE:-false}
+  ENABLE_ROUTER:           ${ENABLE_ROUTER:-false}
   MESH_NODE_NAME:          ${MESH_NODE_NAME}
   MESH_PUBLIC_IP:          ${MESH_PUBLIC_IP}
+  MESH_API_URL:            ${MESH_API_URL:-}
   MESH_WG_PORT:            ${MESH_WG_PORT:-51820}
   MESH_VPN_PORT:           ${MESH_VPN_PORT:-443}
   MESH_API_PORT:           ${MESH_API_PORT:-8080}
@@ -41,6 +54,7 @@ x-core-env: &core-env
   MESH_MODE:               ${MESH_MODE:-leader}
   MESH_JOIN_ADDR:          ${MESH_JOIN_ADDR:-}
   MESH_JOIN_TOKEN:         ${MESH_JOIN_TOKEN:-}
+  MESH_JOIN_SSL_VERIFY:    ${MESH_JOIN_SSL_VERIFY:-true}
   MESH_CLIENT_SUBNET:      ${MESH_CLIENT_SUBNET:-10.8.0.0/24}
   MESH_SUBNET:             ${MESH_SUBNET:-10.99.0.0/24}
   MESH_ALLOWED_LAN:        ${MESH_ALLOWED_LAN:-192.168.100.0/24}
@@ -87,9 +101,9 @@ services:
     depends_on:
       - core
 
-  # ── WireGuard manager (profile: wg) ─────────────────────────────────────────
+  # ── WireGuard manager ────────────────────────────────────────────────────────
+  # ENABLE_WG=true to activate, false (default) = container exits immediately.
   wg-manager:
-    profiles: [wg]
     image: ghcr.io/s-kroonen/meshvpn-wg-manager:${IMAGE_TAG:-latest}
     network_mode: "host"
     cap_add:
@@ -98,12 +112,13 @@ services:
     volumes:
       - meshvpn-data:/data
     environment:
+      ENABLE_WG: "${ENABLE_WG:-false}"
       CORE_API: "http://127.0.0.1:${MESH_API_PORT:-8080}"
     restart: unless-stopped
 
-  # ── ip route manager (profile: router) ──────────────────────────────────────
+  # ── ip route manager ─────────────────────────────────────────────────────────
+  # ENABLE_ROUTER=true to activate.
   router:
-    profiles: [router]
     image: ghcr.io/s-kroonen/meshvpn-router:${IMAGE_TAG:-latest}
     network_mode: "host"
     cap_add:
@@ -111,12 +126,13 @@ services:
     volumes:
       - meshvpn-data:/data
     environment:
+      ENABLE_ROUTER: "${ENABLE_ROUTER:-false}"
       CORE_API: "http://127.0.0.1:${MESH_API_PORT:-8080}"
     restart: unless-stopped
 
-  # ── OpenVPN server (profile: openvpn) ───────────────────────────────────────
+  # ── OpenVPN server ───────────────────────────────────────────────────────────
+  # ENABLE_OPENVPN=true to activate.
   openvpn:
-    profiles: [openvpn]
     image: ghcr.io/s-kroonen/meshvpn-openvpn:${IMAGE_TAG:-latest}
     network_mode: "host"
     cap_add:
@@ -125,25 +141,30 @@ services:
       - /dev/net/tun
     volumes:
       - meshvpn-data:/data
+    environment:
+      ENABLE_OPENVPN: "${ENABLE_OPENVPN:-false}"
     restart: unless-stopped
 
-  # ── HAProxy TCP frontend (profile: haproxy) ──────────────────────────────────
+  # ── HAProxy TCP frontend ──────────────────────────────────────────────────────
+  # ENABLE_HAPROXY=true to activate. Required to expose port 443 to VPN clients.
   haproxy:
-    profiles: [haproxy]
     image: ghcr.io/s-kroonen/meshvpn-haproxy:${IMAGE_TAG:-latest}
     ports:
       - "${MESH_VPN_PORT:-443}:443"
     networks:
       - meshvpn
+    environment:
+      ENABLE_HAPROXY: "${ENABLE_HAPROXY:-false}"
     restart: unless-stopped
 
-  # ── Cloudflare DNS updater (profile: cloudflare) ─────────────────────────────
+  # ── Cloudflare DNS updater ────────────────────────────────────────────────────
+  # ENABLE_CLOUDFLARE=true to activate. Also set CF_API_TOKEN, CF_ZONE_ID, CF_DOMAIN.
   cloudflare:
-    profiles: [cloudflare]
     image: ghcr.io/s-kroonen/meshvpn-cloudflare:${IMAGE_TAG:-latest}
     volumes:
       - meshvpn-data:/data
     environment:
+      ENABLE_CLOUDFLARE: "${ENABLE_CLOUDFLARE:-false}"
       CORE_API:     "http://core:${MESH_API_PORT:-8080}"
       CF_ENABLED:   ${CF_ENABLED:-false}
       CF_API_TOKEN: ${CF_API_TOKEN:-}

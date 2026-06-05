@@ -3,6 +3,7 @@ Cloudflare DNS updater: keeps A records for healthy nodes.
 Only the leader runs the full update; followers manage their own record only.
 """
 import os
+import sys
 import time
 import logging
 
@@ -13,6 +14,10 @@ logging.basicConfig(
     format="[%(asctime)s] [cloudflare] [%(levelname)s] %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+if os.environ.get("ENABLE_CLOUDFLARE", "false").lower() != "true":
+    logger.info("ENABLE_CLOUDFLARE is not set to true — cloudflare updater is disabled. Exiting.")
+    sys.exit(0)
 
 CORE_API = os.environ.get("CORE_API", "http://core:8080")
 CF_API_TOKEN = os.environ.get("CF_API_TOKEN", "")

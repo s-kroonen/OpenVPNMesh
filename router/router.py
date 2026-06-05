@@ -3,6 +3,7 @@ Route manager: polls core API and manages ip route entries for mesh peers.
 Runs with host networking and NET_ADMIN capability.
 """
 import os
+import sys
 import time
 import logging
 import subprocess
@@ -14,6 +15,10 @@ logging.basicConfig(
     format="[%(asctime)s] [router] [%(levelname)s] %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+if os.environ.get("ENABLE_ROUTER", "false").lower() != "true":
+    logger.info("ENABLE_ROUTER is not set to true — router is disabled. Exiting.")
+    sys.exit(0)
 
 CORE_API = os.environ.get("CORE_API", "http://127.0.0.1:8080")
 POLL_INTERVAL = 3
