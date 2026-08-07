@@ -1,10 +1,12 @@
 import datetime
+import hmac
 import secrets
 import logging
+from typing import Optional
 
 import bcrypt
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 
@@ -46,7 +48,19 @@ def create_token(username: str) -> str:
     return jwt.encode(payload, _get_jwt_secret(), algorithm=JWT_ALGORITHM)
 
 
-def require_auth(credentials: HTTPAuthorizationCredentials = Depends(_bearer)):
+def require_auth(
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer),
+    x_mesh_secret: Optional[str] = Header(None),
+):
+    """Accept either a user JWT or the internal mesh_secret (sidecar polling)."""
+    # Sidecar / internal path: shared secret in X-Mesh-Secret header.
+    if x_mesh_secret:
+        stored = get_config("mesh_secret")
+        if stored and hmac.compare_digest(x_mesh_secret, stored):
+            return "internal"
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid mesh secret")
+
+    # User path: JWT bearer token.
     if not credentials:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     try:

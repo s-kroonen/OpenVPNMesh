@@ -7,11 +7,13 @@ from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
 from db import (
     init_db, get_config, set_config, get_db,
     get_node_by_name, insert_node, get_all_nodes, get_next_mesh_ip,
+    update_node_from_env,
 )
 from state import NodeState, set_state
 from pki import (
@@ -123,7 +125,16 @@ async def _leader_startup():
         )
         logger.info(f"Leader node registered with WG IP {wg_ip}")
     else:
-        logger.info(f"Existing leader record found (wg_ip={existing['wg_ip']})")
+        logger.info(f"Existing leader record found (wg_ip={existing['wg_ip']}) — refreshing config from env")
+        update_node_from_env(
+            name=settings.node.name,
+            public_ip=settings.node.public_ip,
+            api_url=settings.node.api_url,
+            api_port=settings.node.api_port,
+            wg_port=settings.node.wg_port,
+            vpn_port=settings.node.vpn_port,
+            priority=settings.node.priority,
+        )
 
     if not get_config("join_token"):
         set_config("join_token", secrets.token_hex(32))
@@ -132,18 +143,17 @@ async def _leader_startup():
     if not get_config("mesh_secret"):
         set_config("mesh_secret", secrets.token_hex(32))
 
+    # Publish mesh_secret to the shared /data volume so sidecars can read it
+    # and authenticate their polling requests against the core API.
+    _write_file("/data/mesh_secret", get_config("mesh_secret") or "", 0o600)
+
     _setup_pki()
     write_wg_config()
     write_ovpn_config()
 
-    haproxy_cfg = (
-        "global\n    log stdout format raw local0\n\n"
-        "defaults\n    mode tcp\n    timeout connect 5s\n"
-        "    timeout client 60s\n    timeout server 60s\n    log global\n\n"
-        "frontend vpn_in\n    bind *:443\n    default_backend openvpn_local\n\n"
-        "backend openvpn_local\n    server ovpn host-gateway:1194 check\n"
-    )
-    _write_file(os.path.join(HAPROXY_DIR, "haproxy.cfg"), haproxy_cfg)
+    # HAProxy uses a static config baked into its image (haproxy/haproxy.cfg).
+    # It reaches openvpn:1194 via Docker DNS on the meshvpn bridge — no runtime
+    # generation needed.
 
     logger.info("Leader startup complete.")
 
@@ -215,6 +225,7 @@ async def _join_startup():
 
     if response_data.get("mesh_secret"):
         set_config("mesh_secret", response_data["mesh_secret"])
+        _write_file("/data/mesh_secret", response_data["mesh_secret"], 0o600)
 
     wg_ip = response_data["wg_ip"]
     all_nodes_data = response_data["nodes"]
@@ -231,6 +242,17 @@ async def _join_startup():
             vpn_port=settings.node.vpn_port,
             priority=settings.node.priority,
             status="follower",
+        )
+    else:
+        logger.info("Existing follower record found — refreshing config from env")
+        update_node_from_env(
+            name=settings.node.name,
+            public_ip=settings.node.public_ip,
+            api_url=settings.node.api_url,
+            api_port=settings.node.api_port,
+            wg_port=settings.node.wg_port,
+            vpn_port=settings.node.vpn_port,
+            priority=settings.node.priority,
         )
 
     now = int(datetime.datetime.utcnow().timestamp())
@@ -289,6 +311,57 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="MeshVPN Core Daemon", lifespan=lifespan)
+
+
+def _build_cors_origins() -> list[str]:
+    """Assemble the CORS allow-list.
+
+    Always includes localhost defaults so `docker compose up` and direct-to-core
+    dev work out of the box. Extra origins come from:
+      - MESH_CORS_ORIGINS  (comma-separated absolute URLs)
+      - MESH_API_URL       (the API's own public origin, when set)
+    Pass MESH_CORS_ORIGINS="*" to allow any origin (dev only).
+    """
+    from urllib.parse import urlparse
+
+    raw = os.environ.get("MESH_CORS_ORIGINS", "").strip()
+    if raw == "*":
+        return ["*"]
+
+    origins: set[str] = {
+        # "http://localhost:3000",
+        # "http://localhost:8080",
+        # "http://127.0.0.1:3000",
+        # "http://127.0.0.1:8080",
+    }
+    if raw:
+        for o in raw.split(","):
+            o = o.strip().rstrip("/")
+            if o:
+                origins.add(o)
+
+    if settings.node.api_url:
+        parsed = urlparse(settings.node.api_url)
+        if parsed.scheme and parsed.netloc:
+            origins.add(f"{parsed.scheme}://{parsed.netloc}")
+
+    return sorted(origins)
+
+
+_cors_origins = _build_cors_origins()
+# CORS spec forbids allow_origins=["*"] together with allow_credentials=True.
+# Our SPA uses Authorization: Bearer, not cookies, so we don't need credentials.
+# Disable them whenever the allow-list is wildcarded so the browser accepts
+# the preflight response.
+_cors_credentials = _cors_origins != ["*"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=_cors_credentials,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+logger.info(f"CORS allow-list: {_cors_origins} (credentials={_cors_credentials})")
 
 from api import auth, nodes, clients, routing, health, sync
 

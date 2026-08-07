@@ -51,6 +51,7 @@ x-core-env: &core-env
   MESH_HEALTH_INTERVAL:    ${MESH_HEALTH_INTERVAL:-3}
   MESH_FAILOVER_THRESHOLD: ${MESH_FAILOVER_THRESHOLD:-3}
   ADMIN_PASSWORD:          ${ADMIN_PASSWORD:-admin}
+  MESH_CORS_ORIGINS:       ${MESH_CORS_ORIGINS:-}
   CF_ENABLED:              ${CF_ENABLED:-false}
   CF_API_TOKEN:            ${CF_API_TOKEN:-}
   CF_ZONE_ID:              ${CF_ZONE_ID:-}
@@ -90,6 +91,13 @@ services:
       dockerfile: frontend/Dockerfile
     ports:
       - "${MESH_UI_PORT:-3000}:3000"
+    environment:
+      # Where the browser hits the API. Leave EMPTY to use nginx's built-in
+      # proxy (frontend → core on the docker network). Set to an absolute URL
+      # when frontend and API are served from different origins, e.g.
+      #   API_URL=http://localhost:8080          local dev, direct-to-core
+      #   API_URL=https://vpn.example.com        behind a reverse proxy
+      API_URL: "${API_URL:-}"
     networks:
       - meshvpn
     restart: unless-stopped
@@ -130,20 +138,24 @@ services:
     restart: on-failure
 
   # ── OpenVPN server ───────────────────────────────────────────────────────────
-  # Set ENABLE_OPENVPN=true to activate.
+  # Set ENABLE_OPENVPN=true to activate. Runs on the meshvpn bridge — HAProxy
+  # reaches it by DNS at openvpn:1194. Client subnet traffic is NAT'd out
+  # through the container's eth0 (start.sh installs the MASQUERADE rule).
   openvpn:
     build:
       context: .
       dockerfile: openvpn/Dockerfile
-    network_mode: "host"
     cap_add:
       - NET_ADMIN
     devices:
       - /dev/net/tun
     volumes:
       - meshvpn-data:/data
+    networks:
+      - meshvpn
     environment:
       ENABLE_OPENVPN: "${ENABLE_OPENVPN:-false}"
+      MESH_CLIENT_SUBNET: "${MESH_CLIENT_SUBNET:-10.8.0.0/24}"
     restart: on-failure
 
   # ── HAProxy TCP frontend ──────────────────────────────────────────────────────
@@ -156,8 +168,6 @@ services:
       - "${MESH_VPN_PORT:-443}:443"
     networks:
       - meshvpn
-    extra_hosts:
-      - "host-gateway:host-gateway"
     environment:
       ENABLE_HAPROXY: "${ENABLE_HAPROXY:-false}"
     restart: on-failure

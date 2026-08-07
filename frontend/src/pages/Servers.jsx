@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../App.jsx'
 import HealthBadge from '../components/HealthBadge.jsx'
+import { apiFetch } from '../api.js'
 
 export default function Servers() {
   const { token } = useAuth()
@@ -14,14 +15,14 @@ export default function Servers() {
 
   async function load() {
     try {
-      const r = await fetch('/api/nodes', { headers })
+      const r = await apiFetch('/api/nodes', { headers })
       if (r.ok) setNodes(await r.json())
     } catch { setError('Failed to load nodes') }
   }
 
   async function loadToken() {
     try {
-      const r = await fetch('/api/nodes/join-token', { headers })
+      const r = await apiFetch('/api/nodes/join-token', { headers })
       if (r.ok) setTokenInfo(await r.json())
       else setTokenInfo(null)
     } catch {}
@@ -32,7 +33,7 @@ export default function Servers() {
   async function rotateToken() {
     setRotating(true)
     try {
-      const r = await fetch('/api/nodes/join-token/rotate', { method: 'POST', headers })
+      const r = await apiFetch('/api/nodes/join-token/rotate', { method: 'POST', headers })
       if (r.ok) {
         setTokenInfo(await r.json())
         setShowJoin(true)
@@ -42,7 +43,7 @@ export default function Servers() {
 
   async function removeNode(node) {
     if (!confirm(`Remove node "${node.name}" from the mesh?`)) return
-    const r = await fetch(`/api/nodes/${node.id}`, { method: 'DELETE', headers })
+    const r = await apiFetch(`/api/nodes/${node.id}`, { method: 'DELETE', headers })
     if (r.ok) await load()
     else setError('Failed to remove node')
   }

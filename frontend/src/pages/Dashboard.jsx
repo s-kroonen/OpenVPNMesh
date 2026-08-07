@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../App.jsx'
 import NodeCard from '../components/NodeCard.jsx'
+import { apiFetch } from '../api.js'
 
 export default function Dashboard() {
   const { token } = useAuth()
@@ -14,9 +15,9 @@ export default function Dashboard() {
   async function load() {
     try {
       const [nr, hr, rr] = await Promise.all([
-        fetch('/api/nodes',        { headers: hdrs }),
-        fetch('/api/health/mesh',  { headers: hdrs }),
-        fetch('/api/routing',      { headers: hdrs }),
+        apiFetch('/api/nodes',        { headers: hdrs }),
+        apiFetch('/api/health/mesh',  { headers: hdrs }),
+        apiFetch('/api/routing',      { headers: hdrs }),
       ])
       if (nr.ok) setNodes(await nr.json())
       if (hr.ok) {

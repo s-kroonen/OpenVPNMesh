@@ -24,6 +24,20 @@ CF_API_TOKEN = os.environ.get("CF_API_TOKEN", "")
 CF_ZONE_ID = os.environ.get("CF_ZONE_ID", "")
 CF_DOMAIN = os.environ.get("CF_DOMAIN", "vpn.yourdomain.com")
 POLL_INTERVAL = 10
+MESH_SECRET_FILE = "/data/mesh_secret"
+_mesh_secret = ""
+
+
+def _mesh_headers() -> dict:
+    """Return the X-Mesh-Secret header, reading from the shared volume once."""
+    global _mesh_secret
+    if not _mesh_secret:
+        try:
+            with open(MESH_SECRET_FILE) as f:
+                _mesh_secret = f.read().strip()
+        except OSError:
+            return {}
+    return {"X-Mesh-Secret": _mesh_secret} if _mesh_secret else {}
 
 
 def _get_cf_records(zone_id: str, token: str) -> dict:
@@ -87,10 +101,11 @@ def main():
     while True:
         try:
             with httpx.Client(timeout=5) as client:
-                mesh_resp = client.get(f"{CORE_API}/api/health/mesh", timeout=5)
+                hdrs = _mesh_headers()
+                mesh_resp = client.get(f"{CORE_API}/api/health/mesh", headers=hdrs, timeout=5)
                 if mesh_resp.status_code == 200:
                     nodes_health = mesh_resp.json()
-                    nodes_resp = client.get(f"{CORE_API}/api/nodes", timeout=5)
+                    nodes_resp = client.get(f"{CORE_API}/api/nodes", headers=hdrs, timeout=5)
                     nodes = {n["name"]: n for n in (nodes_resp.json() if nodes_resp.status_code == 200 else [])}
 
                     for h in nodes_health:

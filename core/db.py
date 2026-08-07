@@ -123,6 +123,19 @@ def insert_node(name, public_ip, wg_pubkey, wg_ip, api_port, wg_port, vpn_port, 
         )
 
 
+def update_node_from_env(name, public_ip, api_url, api_port, wg_port, vpn_port, priority):
+    """Refresh a node's configurable fields from env/config on each startup.
+    Keeps wg_pubkey, wg_ip, and status untouched (those are persistent state)."""
+    with get_db() as conn:
+        conn.execute(
+            """UPDATE nodes
+               SET public_ip = ?, api_url = ?, api_port = ?,
+                   wg_port = ?, vpn_port = ?, priority = ?
+               WHERE name = ?""",
+            (public_ip, api_url, api_port, wg_port, vpn_port, priority, name),
+        )
+
+
 def update_node_status(name: str, status: str):
     now = int(datetime.datetime.utcnow().timestamp())
     with get_db() as conn:

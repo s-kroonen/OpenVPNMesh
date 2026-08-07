@@ -12,6 +12,7 @@ FROM nginx:alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY frontend/nginx.conf /etc/nginx/nginx.conf
+COPY --chmod=755 frontend/docker-entrypoint.sh /docker-entrypoint.sh
 
 EXPOSE 3000
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["/docker-entrypoint.sh"]

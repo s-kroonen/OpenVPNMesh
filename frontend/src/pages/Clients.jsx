@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../App.jsx'
 import ClientTable from '../components/ClientTable.jsx'
+import { apiFetch } from '../api.js'
 
 export default function Clients() {
   const { token } = useAuth()
@@ -13,7 +14,7 @@ export default function Clients() {
 
   async function load() {
     try {
-      const r = await fetch('/api/clients', { headers })
+      const r = await apiFetch('/api/clients', { headers })
       if (r.ok) setClients(await r.json())
     } catch { setError('Failed to load clients') }
   }
@@ -26,7 +27,7 @@ export default function Clients() {
     setAdding(true)
     setError('')
     try {
-      const r = await fetch('/api/clients', {
+      const r = await apiFetch('/api/clients', {
         method: 'POST',
         headers,
         body: JSON.stringify({ name: newName.trim() }),
@@ -42,7 +43,7 @@ export default function Clients() {
   }
 
   async function downloadOvpn(client) {
-    const r = await fetch(`/api/clients/${client.id}/ovpn`, { headers })
+    const r = await apiFetch(`/api/clients/${client.id}/ovpn`, { headers })
     if (!r.ok) { setError('Download failed'); return }
     const blob = await r.blob()
     const url = URL.createObjectURL(blob)
@@ -53,7 +54,7 @@ export default function Clients() {
 
   async function deleteClient(client) {
     if (!confirm(`Revoke client "${client.name}"?`)) return
-    await fetch(`/api/clients/${client.id}`, { method: 'DELETE', headers })
+    await apiFetch(`/api/clients/${client.id}`, { method: 'DELETE', headers })
     await load()
   }
 

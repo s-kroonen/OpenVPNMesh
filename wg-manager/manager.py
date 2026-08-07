@@ -25,6 +25,20 @@ CORE_API = os.environ.get("CORE_API", "http://127.0.0.1:8080")
 WG_CONF = "/data/wg/wg0.conf"
 WG_IFACE = "wg0"
 POLL_INTERVAL = 3
+MESH_SECRET_FILE = "/data/mesh_secret"
+_mesh_secret = ""
+
+
+def _mesh_headers() -> dict:
+    """Return the X-Mesh-Secret header, reading from the shared volume once."""
+    global _mesh_secret
+    if not _mesh_secret:
+        try:
+            with open(MESH_SECRET_FILE) as f:
+                _mesh_secret = f.read().strip()
+        except OSError:
+            return {}
+    return {"X-Mesh-Secret": _mesh_secret} if _mesh_secret else {}
 
 
 def _hash(text: str) -> str:
@@ -67,7 +81,7 @@ def _post_handshakes(client: httpx.Client, handshakes: dict):
     if not handshakes:
         return
     try:
-        client.post(f"{CORE_API}/api/health/handshakes", json=handshakes, timeout=3)
+        client.post(f"{CORE_API}/api/health/handshakes", json=handshakes, headers=_mesh_headers(), timeout=3)
     except Exception:
         pass
 
@@ -79,7 +93,7 @@ def main():
     while True:
         try:
             with httpx.Client(timeout=5) as client:
-                resp = client.get(f"{CORE_API}/api/nodes", timeout=5)
+                resp = client.get(f"{CORE_API}/api/nodes", headers=_mesh_headers(), timeout=5)
                 if resp.status_code != 200:
                     logger.debug(f"Core API returned {resp.status_code}")
                     time.sleep(POLL_INTERVAL)

@@ -22,6 +22,20 @@ if os.environ.get("ENABLE_ROUTER", "false").lower() != "true":
 
 CORE_API = os.environ.get("CORE_API", "http://127.0.0.1:8080")
 POLL_INTERVAL = 3
+MESH_SECRET_FILE = "/data/mesh_secret"
+_mesh_secret = ""
+
+
+def _mesh_headers() -> dict:
+    """Return the X-Mesh-Secret header, reading from the shared volume once."""
+    global _mesh_secret
+    if not _mesh_secret:
+        try:
+            with open(MESH_SECRET_FILE) as f:
+                _mesh_secret = f.read().strip()
+        except OSError:
+            return {}
+    return {"X-Mesh-Secret": _mesh_secret} if _mesh_secret else {}
 
 
 def _ip_route_add(dest: str, via_iface: str = "wg0"):
@@ -53,8 +67,9 @@ def main():
     while True:
         try:
             with httpx.Client(timeout=5) as client:
-                nodes_resp = client.get(f"{CORE_API}/api/nodes", timeout=5)
-                health_resp = client.get(f"{CORE_API}/api/health/mesh", timeout=5)
+                hdrs = _mesh_headers()
+                nodes_resp = client.get(f"{CORE_API}/api/nodes", headers=hdrs, timeout=5)
+                health_resp = client.get(f"{CORE_API}/api/health/mesh", headers=hdrs, timeout=5)
 
                 if nodes_resp.status_code == 200 and health_resp.status_code == 200:
                     nodes = {n["name"]: n for n in nodes_resp.json()}

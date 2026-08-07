@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../App.jsx'
+import { apiFetch } from '../api.js'
 
 const MODES = ['weighted', 'random', 'fastest', 'failover']
 
@@ -12,7 +13,7 @@ export default function Routing() {
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
 
   useEffect(() => {
-    fetch('/api/routing', { headers })
+    apiFetch('/api/routing', { headers })
       .then(r => r.ok ? r.json() : null)
       .then(d => d && setConfig(d))
       .catch(() => {})
@@ -23,7 +24,7 @@ export default function Routing() {
     setError('')
     setSaved(false)
     try {
-      const r = await fetch('/api/routing', {
+      const r = await apiFetch('/api/routing', {
         method: 'PUT',
         headers,
         body: JSON.stringify(config),
