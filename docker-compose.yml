@@ -35,6 +35,7 @@ x-core-env: &core-env
   ENABLE_ROUTER:           ${ENABLE_ROUTER:-false}
   MESH_NODE_NAME:          ${MESH_NODE_NAME:-}
   MESH_PUBLIC_IP:          ${MESH_PUBLIC_IP:-}
+  MESH_API_URL:            ${MESH_API_URL:-}
   MESH_WG_PORT:            ${MESH_WG_PORT:-51820}
   MESH_VPN_PORT:           ${MESH_VPN_PORT:-443}
   MESH_API_PORT:           ${MESH_API_PORT:-8080}
@@ -43,6 +44,7 @@ x-core-env: &core-env
   MESH_MODE:               ${MESH_MODE:-leader}
   MESH_JOIN_ADDR:          ${MESH_JOIN_ADDR:-}
   MESH_JOIN_TOKEN:         ${MESH_JOIN_TOKEN:-}
+  MESH_JOIN_SSL_VERIFY:    ${MESH_JOIN_SSL_VERIFY:-true}
   MESH_CLIENT_SUBNET:      ${MESH_CLIENT_SUBNET:-10.8.0.0/24}
   MESH_SUBNET:             ${MESH_SUBNET:-10.99.0.0/24}
   MESH_ALLOWED_LAN:        ${MESH_ALLOWED_LAN:-192.168.100.0/24}

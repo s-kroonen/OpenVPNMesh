@@ -66,11 +66,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # GHCR paths are case-sensitive on push but portainer-stack.yml hardcodes
+      # lowercase image paths (e.g. ghcr.io/s-kroonen/...), so force lowercase
+      # here to avoid a "pushed to S-Kroonen, pulled from s-kroonen" mismatch.
+      - name: Lowercase owner
+        id: owner
+        run: echo "lc=${OWNER,,}" >> "$GITHUB_OUTPUT"
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ env.OWNER }}/meshvpn-${{ matrix.service }}
+          images: ghcr.io/${{ steps.owner.outputs.lc }}/meshvpn-${{ matrix.service }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=branch
