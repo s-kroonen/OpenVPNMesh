@@ -328,12 +328,9 @@ def _build_cors_origins() -> list[str]:
     if raw == "*":
         return ["*"]
 
-    origins: set[str] = {
-        # "http://localhost:3000",
-        # "http://localhost:8080",
-        # "http://127.0.0.1:3000",
-        # "http://127.0.0.1:8080",
-    }
+    # Use set() rather than {} — an empty {} is a dict, not a set, and .add()
+    # would raise AttributeError at runtime (the type annotation is ignored).
+    origins: set[str] = set()
     if raw:
         for o in raw.split(","):
             o = o.strip().rstrip("/")
